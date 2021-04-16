@@ -186,6 +186,7 @@
     <ClInclude Include="AbilityCastEvent.h" />
     <ClInclude Include="AmmoReloadEvent.h" />
     <ClInclude Include="Common.h" />
+    <ClInclude Include="YouKilledEvent.h" />
     <ClInclude Include="EnemyAppearedEvent.h" />
     <ClInclude Include="DeathEvent.h" />
     <ClInclude Include="EventBuilder.h" />
@@ -208,6 +209,7 @@
   <ItemGroup>
     <ClCompile Include="AbilityCastEvent.cpp" />
     <ClCompile Include="AmmoReloadEvent.cpp" />
+    <ClCompile Include="YouKilledEvent.cpp" />
     <ClCompile Include="EventBuilder.cpp" />
     <ClCompile Include="GameCapture.cpp" />
     <ClCompile Include="EnemyAppearedEvent.cpp" />

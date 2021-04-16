@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #define SETTING_INI _T(".\\set.ini")
 #define POS_INI (".\\pos.ini")
 
@@ -69,6 +71,10 @@ typedef struct COLOR_PATTERN {
 
 typedef struct EnemyRect
 {
+	int16_t m_mapX;
+	int16_t m_mapY;
+	std::string m_enemyAgent;
+	recti16 m_enemyNormal;
 	recti16 m_enemyHead;
 	recti16 m_enemyBody;
 	recti16 m_enemyLeg;

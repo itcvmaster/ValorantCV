@@ -106,10 +106,16 @@ CTimelineData CParserEngine::run(unsigned char* imgPtr_, int imgWidth_, int imgH
 {
 	CTimelineData *pResult = new CTimelineData();
 
-	if (!Init(imgWidth_, imgHeight_))
-		return *pResult;
+	pResult->m_imageWidth = imgWidth_;
 
-	m_pImageBufferPtr = imgPtr_;
+	if (!Init(imgWidth_, imgHeight_))
+	{
+		pResult->m_imageHeight = 0;
+		return *pResult;
+	}
+
+	pResult->m_imageHeight = imgHeight_;
+	m_pImageBufferPtr = imgPtr_;	
 
 	// GameState
 	pResult->m_clsGameState.m_yourTeamScore = GetYourTeamScore();
@@ -133,8 +139,11 @@ CTimelineData CParserEngine::run(unsigned char* imgPtr_, int imgWidth_, int imgH
 	pResult->m_clsPlayerState.m_hasSpike = GetHasSpike();
 	pResult->m_clsPlayerState.m_credits = GetCredits();
 	pResult->m_clsPlayerState.m_weaponId = GetWeaponId();
+	pResult->m_clsPlayerState.m_hitHeadShot = GetHitHeadShot();
 	
 	GetAbilityLeft(pResult->m_clsPlayerState.m_aryAbilityLeft);
+
+	pResult->m_clsGameState.m_enemyList = GetEnemy(nOtherPlayer, pResult->m_clsPlayerState.m_health);
 
 	return *pResult;
 }
@@ -403,6 +412,11 @@ int8_t CParserEngine::GetWeaponId()
 	return u8WeaponId;
 }
 
+int8_t CParserEngine::GetHitHeadShot()
+{
+	return MatchColorPattern(m_nImageWidth / 2 + m_hitheadshotX, m_hitheadshotY, m_PtnHitHeadShot, 2);
+}
+
 void CParserEngine::GetAbilityLeft(int8_t* pAbilityInfo)
 {
 	int x = m_nImageWidth / 2 - 1 - m_skillStep - (m_skillStep + m_skillWidth) / 2;
@@ -486,7 +500,7 @@ std::vector<std::string> CParserEngine::GetEnemyAgents()
 
 BOOL CParserEngine::Init(int imgWidth_, int imgHeight_)
 {
-	FILE* fp;
+	FILE* fp = NULL;
 	char fn[MAX_PATH];
 
 	m_nImageWidth = imgWidth_;
@@ -501,6 +515,11 @@ BOOL CParserEngine::Init(int imgWidth_, int imgHeight_)
 	if (fopen_s(&fp, fn, "rb"))
 	{
 		m_nImageHeight = 0;
+		return FALSE;
+	}
+
+	if (!fp)
+	{
 		return FALSE;
 	}
 
@@ -867,4 +886,550 @@ int CParserEngine::MatchMapPattern(int x, int y, COLOR_PATTERN* ptn, int nPtn)
 	}
 
 	return INVALID;
+}
+
+int CParserEngine::GetEnemyOnMap(EnemyRect* pMapEnemy)
+{
+	int dxy = 50 * m_nImageHeight / 1080, oxy = 227 * m_nImageHeight / 1080;
+	int i, j, m;
+	int ii, jj;
+	int wid = oxy * 2 - dxy * 2;
+	int hei = oxy - dxy + 15;
+	unsigned char* pMap = new unsigned char[wid * hei], * p;
+	int nMapEnemyCount = 0;
+
+	//detect red color on map
+	for (j = 0; j < hei; j++)
+	{
+		for (i = 0; i < wid; i++)
+		{
+			p = m_pImageBufferPtr + ((dxy + j) * m_nImageWidth + dxy + i) * 3;
+
+			if ((p[2] == 255) && (p[1] == 0) && (p[0] == 0))
+			{
+				pMap[j * wid + i] = 0;
+			}
+			else if ((abs((int)(p[0]) - p[1]) < 5) && ((int)(p[2]) - p[1] > 70))
+			{
+				pMap[j * wid + i] = 255;
+			}
+			else if ((abs((int)(p[0]) - 80) < 6) && (abs((int)(p[1]) - 94) < 6) && (p[2] > 200))
+			{
+				pMap[j * wid + i] = 255;
+			}
+			else if ((abs((int)(p[0]) - 68) < 6) && (abs((int)(p[1]) - 82) < 6) && (p[2] > 180))
+			{
+				pMap[j * wid + i] = 255;
+			}
+			else
+			{
+				pMap[j * wid + i] = 0;
+			}
+		}
+	}
+
+	//set detect area on map
+	for (j = 0; j < hei; j++)
+	{
+		for (i = 0; i < wid; i++)
+		{
+			if (pMap[j * wid + i] == 0)
+			{
+				continue;
+			}
+
+			for (jj = 0; jj < m_PtnMapRedCircle->height; jj++)
+			{
+				if (j - jj < 0)
+				{
+					break;
+				}
+
+				for (ii = 0; ii < m_PtnMapRedCircle->width; ii++)
+				{
+					if (i - ii < 0)
+					{
+						break;
+					}
+
+					pMap[(j - jj) * wid + (i - ii)] |= 1;
+				}
+			}
+
+		}
+	}
+
+	//detect red circle on map
+	for (j = 0; j <= hei - m_PtnMapRedCircle->height; j++)
+	{
+		for (i = 0; i <= wid - m_PtnMapRedCircle->width; i++)
+		{
+			if (pMap[j * wid + i] == 0)
+			{
+				continue;
+			}
+
+			int cc = 0;
+
+			for (jj = 0; jj < m_PtnMapRedCircle->height; jj++)
+			{
+				for (ii = 0; ii < m_PtnMapRedCircle->width; ii++)
+				{
+					if ((pMap[(j + jj) * wid + i + ii] > 1) && (m_PtnMapRedCircle->mask[jj * m_PtnMapRedCircle->width + ii]))
+					{
+						cc++;
+					}
+				}
+			}
+
+
+			if (cc >= m_PtnMapRedCircle->width * 2 / 3)//detect agent icon on map
+			{
+				ii = dxy + i + (m_PtnMapRedCircle->width - m_PtnMapAgents[0].width) / 2;
+				jj = dxy + j + (m_PtnMapRedCircle->height - m_PtnMapAgents[0].height) / 2;
+
+				pMapEnemy[nMapEnemyCount].m_mapX = ii + (m_PtnMapAgents[0].width + 1) / 2 - oxy;
+				pMapEnemy[nMapEnemyCount].m_mapY = oxy - jj - (m_PtnMapAgents[0].height + 1) / 2;
+
+				if (pMapEnemy[nMapEnemyCount].m_mapY < 1)
+				{
+					break;
+				}
+
+				for (m = 0; m < nMapEnemyCount; m++)
+				{
+					if (abs(pMapEnemy[m].m_mapX - pMapEnemy[nMapEnemyCount].m_mapX) +
+						abs(pMapEnemy[m].m_mapY - pMapEnemy[nMapEnemyCount].m_mapY) <
+						(m_PtnMapRedCircle->width + m_PtnMapAgents[0].width) / 2 - 1)
+					{
+						break;
+					}
+				}
+
+				if (m < nMapEnemyCount)
+				{
+					continue;
+				}
+
+				m = MatchMapPattern(ii, jj, m_PtnMapAgents, N_MAPAGENTS);
+
+				if (m != INVALID)
+				{
+					char szAliveAgent[MAX_PATH] = { 0 };
+
+					m /= 2;
+					
+					sprintf_s(szAliveAgent, "agent%d", m);
+					pMapEnemy[nMapEnemyCount].m_enemyAgent = szAliveAgent;
+					nMapEnemyCount++;
+
+					if (nMapEnemyCount == 5)
+					{
+						break;
+					}
+				}
+
+			}
+		}
+
+		if (nMapEnemyCount == 5)
+		{
+			break;
+		}
+	}
+
+	delete[] pMap;
+
+	//sort by mapY
+	EnemyRect er;
+	for (i = 0; i < nMapEnemyCount - 1; i++)
+	{
+		for (j = i + 1; j < nMapEnemyCount; j++)
+		{
+			if (pMapEnemy[i].m_mapY > pMapEnemy[j].m_mapY)
+			{
+				er = pMapEnemy[i]; pMapEnemy[i] = pMapEnemy[j]; pMapEnemy[j] = er;
+			}
+		}
+	}
+
+	//detect enemy on screen according mapEnemy
+	int k, siz;
+
+	for (k = 0; k < nMapEnemyCount; k++)
+	{
+		int dx = pMapEnemy[k].m_mapX;
+		int dy = pMapEnemy[k].m_mapY;
+		int x;
+
+		siz = m_nImageWidth / 2 / dy;
+
+		for (j = m_nImageHeight / 4; j < m_nImageHeight * 3 / 4; j++)
+		{
+			x = m_nImageWidth / 2 + (m_nImageWidth * 2 / 5) * dx / dy;
+			p = m_pImageBufferPtr + (j * m_nImageWidth) * 3;
+
+			int i1, i2;
+
+			i1 = MAX(0, x - siz * 3 / 2); i2 = MIN(x + siz * 3 / 2, m_nImageWidth);
+
+			for (i = i1; i < i2; i++)
+			{
+				//avoid past enemy rect
+				int kk;
+
+				for (kk = 0; kk < k; kk++)
+				{
+					if ((i >= pMapEnemy[kk].m_enemyNormal.x1) && (i <= pMapEnemy[kk].m_enemyNormal.x2) &&
+						(j >= pMapEnemy[kk].m_enemyNormal.y1) && (j <= pMapEnemy[kk].m_enemyNormal.y2))
+					{
+						break;
+					}
+				}
+
+				if (kk < k)
+				{
+					continue;
+				}
+
+				if (((*(p + i * 3) < 80) && (*(p + i * 3 + 1) < 100) && (*(p + i * 3 + 2) > 252)) ||
+					((*(p + i * 3) < 120) && (*(p + i * 3 + 1) < 120) && (*(p + i * 3 + 2) > 252) && (abs((int)(*(p + i * 3)) - *(p + i * 3 + 1)) < 4)) ||
+					((abs((int)(*(p + i * 3)) - *(p + i * 3 + 1)) < 4) && (*(p + i * 3 + 2) > *(p + i * 3 + 1) * 3) && (*(p + i * 3 + 2) > 150)))
+				{
+					pMapEnemy[k].m_enemyNormal.y1 = j;
+					pMapEnemy[k].m_enemyNormal.x1 = i - siz * 3 / 4;
+					pMapEnemy[k].m_enemyNormal.x2 = i + siz * 3 / 4;
+					pMapEnemy[k].m_enemyNormal.y2 = MIN(j + 4 * siz, m_nImageHeight - 1);
+					break;
+				}
+			}
+
+			if (i < i2)
+			{
+				break;
+			}
+		}
+	}
+
+	return nMapEnemyCount;
+}
+
+int CParserEngine::GetEnemyOnScreen(EnemyRect * pEnemy)
+{
+	//enemy detect
+	unsigned char* p, * pt = m_pImageBufferPtr;
+	unsigned char* pp, * pptr = new unsigned char[m_nImageWidth * m_nImageHeight * 3];
+
+	memset(pptr, 0, m_nImageWidth * m_nImageHeight * 3);
+
+	int i, j, ii, jj, tp = m_nImageHeight, bt = -1, rt = -1, lt = m_nImageWidth, cnt = 0;
+	int mapSize = 440 * m_nImageHeight / 1080;
+	int nEnemyCount = 0;
+
+	for (j = 5; j < m_nImageHeight - 5; j++)
+	{
+		p = pt + j * m_nImageWidth * 3; p += 3 * 5;
+		pp = pptr + j * m_nImageWidth * 3; pp += 3 * 5;
+
+		for (i = 5; i < m_nImageWidth - 5; i++)
+		{
+			if ((i < mapSize) && (j < mapSize))
+			{
+				p += 3;
+				pp += 3;
+				continue;
+			}
+
+			if ((*(p + 2) >= 254) && (*(p + 1) != 0) && (*p != 0) && (
+
+				((*(p + 1) < 50) && (*p < 50) && (*(p + 1) < *p * 1.5))
+				|| ((*(p + 1) < 70) && (*p < 70) && (((*(p + 1) < *p) ? *p - *(p + 1) : *(p + 1) - *p) < 4))
+
+				)
+
+				)
+			{
+				int cc = 0, st = 2; byte d = 150; byte* zz;
+
+				for (jj = -st; jj <= st; jj++)
+				{
+					for (ii = -st; ii <= st; ii++)
+					{
+						zz = pt + ((j + jj) * m_nImageWidth + i + ii) * 3;
+						if (zz[2] < d)cc++;
+						if (zz[2] / 3 * 2 < zz[0] / 2 + zz[1] / 2)cc++;
+					}
+				}
+
+				if (cc >= 23)
+				{
+					*pp = 255;
+
+					if (i > rt) rt = i;
+					if (i < lt) lt = i;
+					if (j < tp) tp = j;
+					if (j > bt) bt = j;
+
+					cnt++;
+				}
+			}
+
+			p += 3;
+			pp += 3;
+		}
+	}
+
+	int r, l, t, b;
+	int r1, l1, t1, b1;
+	double screenWidthRate = ((double)(1080)) * m_nImageWidth / 1920 / m_nImageHeight;
+
+	if (cnt > 1)
+	{
+		double rate = (double(rt - lt)) / (bt - tp) / screenWidthRate;
+		//			cout << "  " << rate << "  " << rt - lt << "  " << bt - tp;
+
+		if ((rate < 0.9) || ((bt - tp < 27) && (rate < 3)))//one enemy  
+		{
+			nEnemyCount = 1;
+			pEnemy[0].m_enemyNormal.x1 = lt;
+			pEnemy[0].m_enemyNormal.y1 = tp;
+			pEnemy[0].m_enemyNormal.x2 = rt;
+			pEnemy[0].m_enemyNormal.y2 = bt;
+		}
+		else//two enemy
+		{
+			//first enemy
+			r = lt; l = rt; t = bt; b = tp;
+
+			for (j = tp; j <= bt; j++)
+			{
+				pp = pptr + (j * m_nImageWidth + lt) * 3;
+
+				for (i = lt; i < (lt + rt) / 2; i++)
+				{
+					if (*pp)
+					{
+						if (i > r) r = i;
+						if (i < l) l = i;
+						if (j < t) t = j;
+						if (j > b) b = j;
+					}
+
+					pp += 3;
+				}
+			}
+
+			r1 = r; l1 = l; t1 = t; b1 = b;
+
+			//second enemy
+			r = lt; l = rt; t = bt; b = tp;
+
+			for (j = tp; j <= bt; j++)
+			{
+				pp = pptr + (j * m_nImageWidth + (lt + rt) / 2) * 3;
+
+				for (i = (lt + rt) / 2; i <= rt; i++)
+				{
+					if (*pp)
+					{
+						if (i > r) r = i;
+						if (i < l) l = i;
+						if (j < t) t = j;
+						if (j > b) b = j;
+					}
+
+					pp += 3;
+				}
+			}
+
+			if (l - r1 < (rt - lt) * 0.1)//one enemy
+			{
+				if (((rt - lt) > (bt - tp) * 4) && (bt - tp < 10))
+				{
+					nEnemyCount = 0;
+				}
+				else
+				{
+					nEnemyCount = 1;
+					pEnemy[0].m_enemyNormal.x1 = lt;
+					pEnemy[0].m_enemyNormal.y1 = tp;
+					pEnemy[0].m_enemyNormal.x2 = rt;
+					pEnemy[0].m_enemyNormal.y2 = bt;
+				}
+			}
+			else//two enemy
+			{
+				if ((b1 == t1) || (((r1 - l1) > (b1 - t1) * 4) && (b1 - t1 < 15)))
+				{
+					nEnemyCount = 0;
+				}
+				else
+				{
+					nEnemyCount = 1;
+					pEnemy[0].m_enemyNormal.x1 = l1;
+					pEnemy[0].m_enemyNormal.y1 = t1;
+					pEnemy[0].m_enemyNormal.x2 = r1;
+					pEnemy[0].m_enemyNormal.y2 = b1;
+				}
+
+				if (!((b == t) || (((r - l) > (b - t) * 4) && (b - t < 15))))
+				{
+					pEnemy[nEnemyCount].m_enemyNormal.x1 = l;
+					pEnemy[nEnemyCount].m_enemyNormal.y1 = t;
+					pEnemy[nEnemyCount].m_enemyNormal.x2 = r;
+					pEnemy[nEnemyCount].m_enemyNormal.y2 = b;
+					nEnemyCount++;
+				}
+			}
+		}
+	}
+
+	//recheck rect
+	for (i = 0; i < nEnemyCount; i++)
+	{
+		r = (int)min(m_nImageWidth, pEnemy[i].m_enemyNormal.x2 + max((pEnemy[i].m_enemyNormal.x2 - pEnemy[i].m_enemyNormal.x1) * 0.2, 5));
+		l = (int)max(0, pEnemy[i].m_enemyNormal.x1 - max((pEnemy[i].m_enemyNormal.x2 - pEnemy[i].m_enemyNormal.x1) * 0.2, 5));
+		t = (int)max(0, tp - max((pEnemy[i].m_enemyNormal.y2 - pEnemy[i].m_enemyNormal.y1) * 0.2, 30));
+		b = (int)min(m_nImageHeight, pEnemy[i].m_enemyNormal.y2 + max((pEnemy[i].m_enemyNormal.y2 - pEnemy[i].m_enemyNormal.y1) * 0.2, 30));
+
+		for (j = t; j < b; j++)
+		{
+			p = pt + (j * m_nImageWidth + l) * 3;
+			pp = pptr + (j * m_nImageWidth + l) * 3;
+
+			for (int k = l; k < r; k++)
+			{
+				if ((*(p + 2) >= 254) && (*(p + 1) != 0) && (*p != 0) && (
+					((*(p + 1) < 50) && (*p < 50))
+					|| ((*(p + 1) < 120) && (*p < 120) && (((*(p + 1) < *p) ? *p - *(p + 1) : *(p + 1) - *p) < 4))
+
+					)
+					)
+				{
+					*pp = 255;
+
+					if (k > pEnemy[i].m_enemyNormal.x2) pEnemy[i].m_enemyNormal.x2 = k;
+					if (k < pEnemy[i].m_enemyNormal.x1) pEnemy[i].m_enemyNormal.x1 = k;
+					if (j < pEnemy[i].m_enemyNormal.y1) pEnemy[i].m_enemyNormal.y1 = j;
+					if (j > pEnemy[i].m_enemyNormal.y2) pEnemy[i].m_enemyNormal.y2 = j;
+				}
+
+				p += 3;
+				pp += 3;
+			}
+		}
+
+		pEnemy[i].m_enemyNormal.y2 = (int)min(m_nImageHeight, pEnemy[i].m_enemyNormal.y2 + (pEnemy[i].m_enemyNormal.y2 - pEnemy[i].m_enemyNormal.y1) * 0.3);
+	}
+
+	delete[]pptr;
+
+	return nEnemyCount;
+}
+
+std::vector<EnemyRect> CParserEngine::GetEnemy(int otherPlayer_, int8_t health_)
+{
+	int i, j;
+	int nEnemy = 0, nMapEnemy = 0;
+	EnemyRect rtEnemy[5], rtMapEnemy[5];
+
+	ZeroMemory(rtEnemy, sizeof(EnemyRect) * 5);
+	ZeroMemory(rtMapEnemy, sizeof(EnemyRect) * 5);
+
+	nEnemy = GetEnemyOnScreen(rtEnemy);
+
+	if (otherPlayer_ != 0 && health_ != INVALID)
+	{
+		nMapEnemy = GetEnemyOnMap(rtMapEnemy);
+
+		// combine two result
+		for (i = 0; i < nMapEnemy; i ++)
+		{
+			if (rtMapEnemy[i].m_enemyNormal.x2 == 0)
+			{
+				continue;
+			}
+
+			for (j = 0; j < nEnemy; j ++)
+			{
+				if (rtEnemy[j].m_enemyNormal.x2 == 0)
+				{
+					continue;
+				}
+
+				if (rtMapEnemy[i].m_enemyNormal.y1 <= rtEnemy[j].m_enemyNormal.y2 &&
+					rtMapEnemy[i].m_enemyNormal.y2 >= rtEnemy[j].m_enemyNormal.y1 &&
+					rtMapEnemy[i].m_enemyNormal.x1 <= rtEnemy[j].m_enemyNormal.x2 &&
+					rtMapEnemy[i].m_enemyNormal.x2 >= rtEnemy[j].m_enemyNormal.x1)
+				{
+					break;
+				}
+			}
+
+			if (j < nEnemy)
+			{
+				int64_t v1 = (rtEnemy[j].m_enemyNormal.x2 - rtEnemy[j].m_enemyNormal.x1 + 1) * (rtEnemy[j].m_enemyNormal.y2 - rtEnemy[j].m_enemyNormal.y1 + 1);
+				int64_t v2 = (rtMapEnemy[i].m_enemyNormal.x2 - rtMapEnemy[i].m_enemyNormal.x1 + 1) * (rtEnemy[i].m_enemyNormal.y2 - rtEnemy[i].m_enemyNormal.y1 + 1) * 2;
+				
+				if (v1 < v2)
+				{
+					rtMapEnemy[i].m_enemyNormal.x2 = (rtMapEnemy[i].m_enemyNormal.x2 + rtEnemy[j].m_enemyNormal.x2) / 2;
+					rtMapEnemy[i].m_enemyNormal.x1 = (rtMapEnemy[i].m_enemyNormal.x1 + rtEnemy[j].m_enemyNormal.x1) / 2;
+					rtMapEnemy[i].m_enemyNormal.y1 = min(rtMapEnemy[i].m_enemyNormal.y1, rtEnemy[j].m_enemyNormal.y1);
+					rtMapEnemy[i].m_enemyNormal.y2 = (rtMapEnemy[i].m_enemyNormal.y2 + rtEnemy[j].m_enemyNormal.y2) / 2;
+				}
+
+				rtEnemy[j].m_enemyNormal.x2 = 0;
+			}
+		}
+
+		for (j = 0; j < nEnemy; j ++)
+		{
+			if (rtEnemy[j].m_enemyNormal.x2 == 0)
+			{
+				nEnemy--;
+				rtEnemy[j] = rtEnemy[nEnemy];
+				j--;
+			}
+		}
+
+		for (i = 0; i < nMapEnemy; i ++)
+		{
+			if (rtMapEnemy[i].m_enemyNormal.x2 > 0)
+			{
+				rtEnemy[nEnemy] = rtMapEnemy[i];
+				nEnemy++;
+			}
+		}
+	}
+
+	std::vector<EnemyRect> res;
+
+	// set head, body, leg
+	for (i = 0; i < nEnemy; i ++)
+	{
+		rtEnemy[i].m_enemyHead.x1 = (rtEnemy[i].m_enemyNormal.x1 * 65 + rtEnemy[i].m_enemyNormal.x2 * 35) / 100;
+		rtEnemy[i].m_enemyHead.x2 = (rtEnemy[i].m_enemyNormal.x1 * 35 + rtEnemy[i].m_enemyNormal.x2 * 65) / 100;
+		rtEnemy[i].m_enemyHead.y1 = rtEnemy[i].m_enemyNormal.y1;
+		rtEnemy[i].m_enemyHead.y2 = (rtEnemy[i].m_enemyNormal.y1 * 90 + rtEnemy[i].m_enemyNormal.y2 * 10) / 100;
+
+		rtEnemy[i].m_enemyBody.x1 = rtEnemy[i].m_enemyNormal.x1;
+		rtEnemy[i].m_enemyBody.x2 = rtEnemy[i].m_enemyNormal.x2;
+		rtEnemy[i].m_enemyBody.y1 = (rtEnemy[i].m_enemyNormal.y1 * 90 + rtEnemy[i].m_enemyNormal.y2 * 10) / 100;
+		rtEnemy[i].m_enemyBody.y2 = (rtEnemy[i].m_enemyNormal.y1 * 50 + rtEnemy[i].m_enemyNormal.y2 * 50) / 100;
+
+		rtEnemy[i].m_enemyLeg.x1 = rtEnemy[i].m_enemyNormal.x1;
+		rtEnemy[i].m_enemyLeg.x2 = rtEnemy[i].m_enemyNormal.x2;
+		rtEnemy[i].m_enemyLeg.y1 = (rtEnemy[i].m_enemyNormal.y1 * 50 + rtEnemy[i].m_enemyNormal.y2 * 50) / 100;
+		rtEnemy[i].m_enemyLeg.y2 = rtEnemy[i].m_enemyNormal.y2;
+
+		rtEnemy[i].m_enemyNormal.x1 -= 3;
+		rtEnemy[i].m_enemyNormal.y1 -= 3;
+		rtEnemy[i].m_enemyNormal.x2 += 3;
+		rtEnemy[i].m_enemyNormal.y2 += 3;
+
+		res.push_back(rtEnemy[i]);
+	}
+
+	return res;
 }

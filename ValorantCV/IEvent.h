@@ -14,6 +14,6 @@ public:
 
 public:
 	uint8_t m_eventType;
-	uint64_t m_timestamp;
+// 	uint64_t m_timestamp;
 };
 

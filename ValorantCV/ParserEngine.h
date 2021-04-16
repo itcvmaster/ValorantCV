@@ -58,6 +58,9 @@ private:
 	int8_t GetEnemyTeamScore();
 	std::vector<std::string> GetAllyAgents();
 	std::vector<std::string> GetEnemyAgents();
+	std::vector<EnemyRect> GetEnemy(int otherPlayer_, int8_t health_);
+	int GetEnemyOnScreen(EnemyRect* pEnemy);
+	int GetEnemyOnMap(EnemyRect* pMapEnemy);
 
 	int8_t GetRoundTime();
 	int8_t GetHealth();
@@ -67,7 +70,9 @@ private:
 	int16_t GetCredits();
 	int8_t GetHasSpike();
 	int8_t GetWeaponId();
+	int8_t GetHitHeadShot();
 	void GetAbilityLeft(int8_t* pAbilityInfo);
 	int GetIsOtherPlayer();
+
 };
 

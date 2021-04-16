@@ -37,14 +37,14 @@ BOOL CValorantReader::pipeline()
 	nScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 
 	if (m_pImgBuffer == NULL)
+	{
 		return FALSE;
+	}
 
 	m_pGameCapturer->captureScreen(m_pImgBuffer, nScreenWidth, nScreenHeight);
 	CTimelineData currSlice = m_pEngine->run(m_pImgBuffer, nScreenWidth, nScreenHeight);
-	// m_pGameCapturer->captureScreen(buffer, w, h, bpp);
-	// CTimelineData currSlice = m_pEngine->run(buffer, w, h, bpp);
-	// m_currSlice = m_pEventBuilder->build(&currSlice, m_aryTimelineData);
-	// this->export(...);
+	m_currSlice = m_pEventBuilder->build(&currSlice, m_aryTimelineData);
+
 	return FALSE;
 }
 

@@ -17,6 +17,7 @@ public:
 	int8_t m_hasSpike;
 	int16_t m_credits;
 	int8_t m_weaponId;
+	int8_t m_hitHeadShot;
 	int8_t m_aryAbilityLeft[MAX_ABILITY];
 };
 
