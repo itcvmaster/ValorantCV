@@ -80,3 +80,30 @@ typedef struct EnemyRect
 	recti16 m_enemyLeg;
 } EnemyRect;
 
+static char				g_szBuffer[0x20000];
+static wchar_t			g_wszMyOutputLog[0x20000];
+
+static void G_OutputDebugStringA(const char* lpszFormat, ...)
+{
+	va_list args;
+	va_start(args, lpszFormat);
+	int nBuf;
+	nBuf = _vsnprintf_s(g_szBuffer, sizeof(g_szBuffer), lpszFormat, args);
+	va_end(args);
+
+	::OutputDebugStringA(g_szBuffer);
+}
+
+static void G_OutputDebugStringW(const WCHAR* lEndPtrFormat, ...)
+{
+	va_list args;
+	va_start(args, lEndPtrFormat);
+	int nBuf;
+	nBuf = _vsnwprintf_s(g_wszMyOutputLog, sizeof(g_wszMyOutputLog), lEndPtrFormat, args);
+	va_end(args);
+	::OutputDebugStringW(g_wszMyOutputLog);
+}
+
+#define GLogA	G_OutputDebugStringA
+#define GLogW	G_OutputDebugStringW
+

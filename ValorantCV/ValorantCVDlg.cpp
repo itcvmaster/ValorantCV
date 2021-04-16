@@ -46,6 +46,9 @@ BOOL CValorantCVDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	// TODO: Add extra initialization here
+	m_valorantReader.InitInstance();
+	
+	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)m_valorantReader.Run, &m_valorantReader, 0, NULL);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }

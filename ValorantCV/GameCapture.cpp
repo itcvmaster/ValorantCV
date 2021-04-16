@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "GameCapture.h"
+#include "Common.h"
 
 CGameCapture::CGameCapture()
 	: m_tszGameWindowName(_T("VALORANT  "))
@@ -13,21 +14,21 @@ CGameCapture::~CGameCapture()
 BOOL CGameCapture::captureScreen(PBYTE buffer_, int nWidth_, int nHeight_)
 {
 	BOOL ret = FALSE;
-
+	
 	if (buffer_ == NULL)
 	{
 		return ret;
 	}
-
+	
 	HDC hDC = GetDC(GetDesktopWindow());
 	HDC hMemDC = CreateCompatibleDC(hDC);
 	HWND hGameWnd = FindWindow(NULL, m_tszGameWindowName);
-
+	
 	if (hGameWnd)
 	{
 		RECT rt;
 		int nWidth = 0, nHeight = 0;
-
+		
 		GetWindowRect(hGameWnd, &rt);
 		nWidth = rt.right - rt.left;
 		nHeight = rt.bottom - rt.top;
@@ -40,7 +41,6 @@ BOOL CGameCapture::captureScreen(PBYTE buffer_, int nWidth_, int nHeight_)
 			{
 				HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
 				BitBlt(hMemDC, 0, 0, nWidth, nHeight, hDC, rt.left, rt.top, SRCCOPY);
-
 				ret = GetRowData(hMemDC, hBitmap, buffer_);
 				SelectObject(hMemDC, hOldBitmap);
 				DeleteObject(hBitmap);
@@ -84,11 +84,12 @@ BOOL CGameCapture::GetRowData(HDC hDC_, HBITMAP hBitmap_, PBYTE pImg_)
 	{
 		pp = pData + j * BitInfo.bmiHeader.biWidth * 4;
 
-		for (int i = 0; i < BitInfo.bmiHeader.biWidth; i++, pp++/*Alpha*/)
+		for (int i = 0; i < BitInfo.bmiHeader.biWidth; i++)
 		{
 			*p++ = *pp++;	//Blue
 			*p++ = *pp++;	//Green
 			*p++ = *pp++;	//Red
+			pp++;/*Alpha*/
 		}
 	}
 

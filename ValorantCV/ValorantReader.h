@@ -9,11 +9,13 @@ class CValorantReader : CWinThread
 {
 public:
 	CValorantReader();
+	virtual ~CValorantReader();
 
 	BOOL InitInstance(); // Create Instances using as new or malloc
 	BOOL Initialize(); // Reset values such as EventType
+	BOOL ExitInstance();
 
-	int Run(); // A threaded function that loops pipeline inside
+	static int Run(LPVOID lParam); // A threaded function that loops pipeline inside
 
 	BOOL pipeline(); // A single function loop to capture a frame,
 					 // to recognize the frame and to output it.

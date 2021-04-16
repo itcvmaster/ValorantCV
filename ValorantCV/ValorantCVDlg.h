@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "ValorantReader.h"
+
 
 // CValorantCVDlg dialog
 class CValorantCVDlg : public CDialogEx
@@ -30,4 +32,7 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+
+public:
+	CValorantReader m_valorantReader;
 };

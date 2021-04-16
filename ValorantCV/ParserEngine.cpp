@@ -119,32 +119,29 @@ CTimelineData CParserEngine::run(unsigned char* imgPtr_, int imgWidth_, int imgH
 
 	// GameState
 	pResult->m_clsGameState.m_yourTeamScore = GetYourTeamScore();
-	pResult->m_clsGameState.m_enemyTeamScore = GetEnemyTeamScore();
-	pResult->m_clsGameState.m_round = pResult->m_clsGameState.m_yourTeamScore + pResult->m_clsGameState.m_enemyTeamScore + 1;
-	pResult->m_clsGameState.m_roundTime = GetRoundTime();
-	pResult->m_clsGameState.m_aryYourAgents = GetAllyAgents();
-	pResult->m_clsGameState.m_aryEnemyAgents = GetEnemyAgents();
-	
+	//pResult->m_clsGameState.m_enemyTeamScore = GetEnemyTeamScore();
+	//pResult->m_clsGameState.m_round = pResult->m_clsGameState.m_yourTeamScore + pResult->m_clsGameState.m_enemyTeamScore + 1;
+	//pResult->m_clsGameState.m_roundTime = GetRoundTime();
+	//pResult->m_clsGameState.m_aryYourAgents = GetAllyAgents();
+	//pResult->m_clsGameState.m_aryEnemyAgents = GetEnemyAgents();
 	// PlayerState
-	pResult->m_clsPlayerState.m_health = GetHealth();
+	//pResult->m_clsPlayerState.m_health = GetHealth();
 
-	int nOtherPlayer = GetIsOtherPlayer();
+	//int nOtherPlayer = GetIsOtherPlayer();
 
-	if (nOtherPlayer != 0 && pResult->m_clsPlayerState.m_health > 0)
-		pResult->m_clsPlayerState.m_isAlive = true;
+	//if (nOtherPlayer != 0 && pResult->m_clsPlayerState.m_health > 0)
+	//	pResult->m_clsPlayerState.m_isAlive = true;
+	//pResult->m_clsPlayerState.m_armor = GetArmor();
+	//pResult->m_clsPlayerState.m_ammo = GetAmmo();
+	//pResult->m_clsPlayerState.m_ammoLeft = GetAmmoLeft();
+	//pResult->m_clsPlayerState.m_hasSpike = GetHasSpike();
+	//pResult->m_clsPlayerState.m_credits = GetCredits();
+	//pResult->m_clsPlayerState.m_weaponId = GetWeaponId();
+	//pResult->m_clsPlayerState.m_hitHeadShot = GetHitHeadShot();
+	//GLogA("CParserEngine::run - 5 - credit[%d]", pResult->m_clsPlayerState.m_credits);
+	//GetAbilityLeft(pResult->m_clsPlayerState.m_aryAbilityLeft);
 
-	pResult->m_clsPlayerState.m_armor = GetArmor();
-	pResult->m_clsPlayerState.m_ammo = GetAmmo();
-	pResult->m_clsPlayerState.m_ammoLeft = GetAmmoLeft();
-	pResult->m_clsPlayerState.m_hasSpike = GetHasSpike();
-	pResult->m_clsPlayerState.m_credits = GetCredits();
-	pResult->m_clsPlayerState.m_weaponId = GetWeaponId();
-	pResult->m_clsPlayerState.m_hitHeadShot = GetHitHeadShot();
-	
-	GetAbilityLeft(pResult->m_clsPlayerState.m_aryAbilityLeft);
-
-	pResult->m_clsGameState.m_enemyList = GetEnemy(nOtherPlayer, pResult->m_clsPlayerState.m_health);
-
+	//pResult->m_clsGameState.m_enemyList = GetEnemy(nOtherPlayer, pResult->m_clsPlayerState.m_health);
 	return *pResult;
 }
 
@@ -152,6 +149,12 @@ int8_t CParserEngine::GetYourTeamScore()
 {
 	int8_t u8YourTeamScore = 0;
 	int ally, ally1, ally2;
+
+	GLogA("m_allyScoreX1: %d, m_allyScoreX10: %d, m_allyScoreX01: %d, m_allyScoreY: %d",
+		m_allyScoreX1, 
+		m_allyScoreX10, 
+		m_allyScoreX01, 
+		m_allyScoreY);
 
 	ally = MatchWhitePattern(m_nImageWidth / 2 + m_allyScoreX1, m_allyScoreY, m_PtnScore, 10);
 	ally1 = MatchWhitePattern(m_nImageWidth / 2 + m_allyScoreX10, m_allyScoreY, m_PtnScore, 10);
@@ -165,6 +168,8 @@ int8_t CParserEngine::GetYourTeamScore()
 		u8YourTeamScore = INVALID;
 	else
 		u8YourTeamScore = MATCH_ERROR;
+
+	GLogA("ally: %d, ally1: %d, ally2: %d", ally, ally1, ally2);
 
 	return u8YourTeamScore;
 }
@@ -504,25 +509,27 @@ BOOL CParserEngine::Init(int imgWidth_, int imgHeight_)
 	char fn[MAX_PATH];
 
 	m_nImageWidth = imgWidth_;
-
+	GLogA("CParserEngine::Init -- 1");
 	if (m_nImageHeight == imgHeight_)
+	{
 		return TRUE;
+	}
 
 	m_nImageHeight = imgHeight_;
 
 	sprintf_s(fn, "ptn%d.dat", m_nImageHeight);
-
+	GLogA("CParserEngine::Init -- 2");
 	if (fopen_s(&fp, fn, "rb"))
 	{
 		m_nImageHeight = 0;
 		return FALSE;
 	}
-
+	GLogA("CParserEngine::Init -- 3");
 	if (!fp)
 	{
 		return FALSE;
 	}
-
+	GLogA("CParserEngine::Init -- 4");
 	fread(m_PtnScore, 10, sizeof(WHITE_PATTERN), fp);
 	fread(m_PtnTime, 10, sizeof(WHITE_PATTERN), fp);
 	fread(m_PtnAmmo, 10, sizeof(WHITE_PATTERN), fp);
@@ -616,6 +623,7 @@ BOOL CParserEngine::Init(int imgWidth_, int imgHeight_)
 	m_skillStep = GetPrivateProfileIntA(strApp, "skillStep", 0, POS_INI);
 	m_skillWidth = GetPrivateProfileIntA(strApp, "skillWidth", 0, POS_INI);
 
+	GLogA("CParserEngine::Init -- 5");
 	return TRUE;
 }
 
@@ -644,10 +652,13 @@ int CParserEngine::MatchWhitePattern_(int x, int y, WHITE_PATTERN* ptn, int nPtn
 	unsigned int maxRGB = 0;
 	int i, j, n;
 
+	GLogA("w: %d, h: %d, w1: %d, h1: %d", w, h, m_nImageWidth, m_nImageHeight);
+	
 	for (j = 0; j < h; j++)
 	{
 		if (y + j >= m_nImageHeight)
 		{
+			GLogA("CParserEngine::MatchWhitePattern_ - 1");
 			delete[] blackImg;
 			return INVALID;
 		}
@@ -656,6 +667,7 @@ int CParserEngine::MatchWhitePattern_(int x, int y, WHITE_PATTERN* ptn, int nPtn
 		{
 			if (x + i >= m_nImageWidth)
 			{
+				GLogA("CParserEngine::MatchWhitePattern_ - 2");
 				delete[] blackImg;
 				return INVALID;
 			}
@@ -697,7 +709,7 @@ int CParserEngine::MatchWhitePattern_(int x, int y, WHITE_PATTERN* ptn, int nPtn
 		else
 			blackImg[i] = 0;
 	}
-
+	GLogA("CParserEngine::MatchWhitePattern_ - 5");
 	for (n = nPtn-1; n >= 0; n--)
 	{
 		for (i = 0; i < w * h; i++)
@@ -711,6 +723,7 @@ int CParserEngine::MatchWhitePattern_(int x, int y, WHITE_PATTERN* ptn, int nPtn
 
 		if (i == w * h)
 		{
+			GLogA("CParserEngine::MatchWhitePattern_ - 3");
 			delete[] blackImg;
 			return n;
 		}
@@ -718,6 +731,7 @@ int CParserEngine::MatchWhitePattern_(int x, int y, WHITE_PATTERN* ptn, int nPtn
 
 	delete[] blackImg;
 
+	GLogA("CParserEngine::MatchWhitePattern_ - 4");
 	return INVALID;
 }
 
