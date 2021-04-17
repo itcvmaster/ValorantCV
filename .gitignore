@@ -1,0 +1,15 @@
+# environment vars
+.vs
+*.obj
+*.log
+*.idb
+*.pdb
+*.tlog
+*.bmp
+*.txt
+*.recipe
+*.iobj
+*.ipdb
+*.pch
+*.ilk
+*.res
